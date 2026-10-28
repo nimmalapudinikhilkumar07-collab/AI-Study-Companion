@@ -28,7 +28,7 @@ if st.button("Generate", type="primary"):
         try:
             with st.spinner("Your AI Study Companion is thinking..."):
                 response = requests.post(
-                    "http://127.0.0.1:8000/ask",
+                    "https://ai-study-companion-9sly.onrender.com/ask",
                     json=payload,
                     timeout=60
                 )
