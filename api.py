@@ -3,17 +3,21 @@ from  fastapi.responses import JSONResponse
 from pydantic import BaseModel,Field,computed_field
 from typing import Literal
 import os
+from langchain_core.messages import HumanMessage,AIMessage,SystemMessage
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 load_dotenv()
 
 model=ChatGroq(model="openai/gpt-oss-20b",temperature=0.3)
-
+class ChatMessage(BaseModel):
+    role:Literal["user","assistant"]
+    content:str
 
 class QuestionRequest(BaseModel):
     question:str=Field(...,description="Enter the question you want to ask the Ai model",min_length=10,max_length=5000)
     difficulty:Literal["easy","medium","hard"]
     mode:Literal["explain","sumarize","quiz"]="explain"
+    history:list[ChatMessage]=Field(default_factory=list)
 
 app=FastAPI()
 
@@ -30,15 +34,26 @@ def ask_question(request:QuestionRequest):
     question:{request.question}
     
     Explain clearly and adjust your explanation to the specified difficulty. """
+    print("Received history:",request.history)
     try:
-        response=model.invoke(prompt)
+        messages=[SystemMessage(content="you are an AI Study Comapanion." "Answer according to the requested mode"
+                                "and difficulty level")]
+        for i in request.history:
+            if i.role=="user":
+                messages.append(HumanMessage(content=i.content))
+            elif i.role=="assistant":
+                messages.append(AIMessage(content=i.content))
+        messages.append(HumanMessage(content=prompt))
+
+        response=model.invoke(messages)
         return {
             "question":request.question,
             "difficulty":request.difficulty,
             "answer":response.content
         }
     except Exception as e:
-        raise HTTPException(status_code=500,detail="AI service failed to generate a response") from e
+        print(f"AI service error:{type(e).__name__}: {e}")
+        raise HTTPException(status_code=500,detail=" Our AI service is temporarily unavailable.Please try again shortly") from e
     
 
 
